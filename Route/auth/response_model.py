@@ -1,20 +1,41 @@
-from pydantic import BaseModel , validator , field_validator
+import re
+
+from pydantic import BaseModel , field_validator
+from pydantic import Field
 from pydantic_core.core_schema import FieldValidationInfo
-from sqlalchemy.orm import Session
 
-from Database.User_Table import User_Table
 
-db: Session = Session
+
+class RequestAuthModel ( BaseModel ) :
+	login: str
+	password: str
+	
+	@field_validator ( 'login' )
+	@classmethod
+	def validate_login ( cls , value ) :
+		if len ( value ) < 3 :
+			raise ValueError ( 'Логин слишком короткий.' )
+		return value
+	
+	@field_validator ( 'password' )
+	@classmethod
+	def validate_password ( cls , value ) :
+		if value is None :
+			raise ValueError (
+				'Не введён пароль'
+				)
+		return value
 
 
 class CheckDataResponseModel ( BaseModel ) :
-	success: bool
-	message: str
+	success: bool | None = Field ( default = None )
+	message: str | None = Field ( default = None )
 	
 	# проверка на успешность на крайний случай
-	@validator ( 'success' )
+	@field_validator ( 'success' )
+	@classmethod
 	def validate_success ( cls , v ) :
-		if v == True | v == False :
+		if v is True or v is False :
 			return v
 		else :
 			raise ValueError (
@@ -23,59 +44,49 @@ class CheckDataResponseModel ( BaseModel ) :
 
 
 class CheckRegistationRequestModel ( BaseModel ) :
-	login: str
-	password: str
-	password2: str
-	email: str
+	login: str | None = Field ( default = None )
+	password: str | None = Field ( default = None )
+	password2: str | None = Field ( default = None )
+	email: str | None = Field ( default = None )
 	
 	# проверка логина
-	@validator ( 'login' )
-	def validate_email ( cls , value ) :
-		check_email = User_Table (
-			login_user = value ,
-			
-			)
-		
-		check = db.first ( check_email )
-		if check is None :
-			return value
-		else :
-			raise ValueError (
-				'Данный логин используется'
-				)
+	@field_validator ( 'login' )
+	@classmethod
+	def validate_login ( cls , value ) :
+		if len ( value ) < 3 :
+			raise ValueError ( 'Логин слишком короткий.' )
+		return value
 	
 	# проверка email
-	@validator ( 'email' )
+	@field_validator ( 'email' )
+	@classmethod
 	def validate_email ( cls , value ) :
-		check_email = User_Table (
-			email = value ,
-			
-			)
-		
-		check = db.first ( check_email )
-		if check is None :
-			return value
-		else :
+		if "@" not in value :
 			raise ValueError (
-				'Данная почта используется'
+				'Введён не правильный формат почты'
 				)
+		
+		return value
 	
-	@validator ( 'password' )
+	@field_validator ( 'password' )
+	@classmethod
 	def validate_password ( cls , value ) :
+		
 		if len ( value ) < 8 :
 			raise ValueError ( 'Пароль имеет меньше 8 символов' )
 		if not value :
 			raise ValueError ( 'Не введён пароль' )
-		if value.search ( r'[а-яА-ЯёЁ]' , value ) :
+		if re.search ( r'[а-яА-ЯёЁ]' , value ) :
 			raise ValueError ( 'Пароль не должен содержать кириллицу (русские буквы)' )
-		if not value.search ( r'[^a-zA-Z0-9]' , value ) :
+		if not re.search ( r'[^a-zA-Z0-9]' , value ) :
 			raise ValueError (
 				'Пароль должен содержать специальные символы.'
 				)
 		return value
 	
 	@field_validator ( 'password2' )
-	def validate_password ( cls , value , info: FieldValidationInfo ) :
+	@classmethod
+	def validate_password_check ( cls , value , info: FieldValidationInfo ) :
 		if 'password' in info.data and value != info.data [ 'password' ] :
 			raise ValueError ( 'Введенные пароли не совпадают' )
 		return value
