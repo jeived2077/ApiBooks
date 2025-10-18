@@ -1,7 +1,10 @@
-from sqlalchemy.ext.asyncio import AsyncAttrs , async_sessionmaker , create_async_engine
+from fastapi.params import Depends
+from sqlalchemy.ext.asyncio import AsyncAttrs , async_sessionmaker , create_async_engine , AsyncSession
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.sql.annotation import Annotated
 
 from Database.settings.settings import settings
+from Route.auth.Route_Auth import get_db
 
 DATABASE_URL = settings.get_db_url ( )
 
@@ -13,6 +16,16 @@ AsyncSessionLocal = async_sessionmaker (
 	autoflush = False
 	
 	)
+
+
+async def get_db ( ) -> AsyncGenerator [ AsyncSession , None ] :
+	async with AsyncSessionLocal ( ) as db :
+		try :
+			
+			yield db
+		finally :
+			
+			await db.close ( )
 
 
 class Base ( AsyncAttrs , DeclarativeBase ) :

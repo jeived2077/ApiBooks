@@ -1,14 +1,16 @@
 from datetime import datetime
 
+from sqlalchemy import ForeignKey , func
+from sqlalchemy.orm import Mapped
+from sqlalchemy.testing.schema import mapped_column
 
-from sqlalchemy import Column , INTEGER , Integer , ForeignKey, BOOLEAN, DateTime, String
+from Database.connect.database_connect import Base
 
 
-class User_Table( Base ):
-	__tablename__ = "nested_comments"
-	id_nestcomm = Column ( Integer , primary_key = True, autoincrement=True )
-	id_commit = Column ( INTEGER , ForeignKey ( "users.id_user" , ondelete = "CASCADE" ) , nullable = False )
-	id_user = Column ( INTEGER , ForeignKey ( "users.id_user" , ondelete = "CASCADE" ) , nullable = False )
-	text_comment = Column ( String , nullable = False , default = None )
-	datetime_create = Column ( DateTime , nullable = False , default = datetime.now )
-	is_edited = Column ( BOOLEAN , nullable = False , default = False )
+# Таблица понравившихся авторов
+class FavoriteUserAuthor ( Base ) :
+	__tablename__ = "favorite_user_author_table"
+	id_favorite: Mapped [ int ] = mapped_column ( primary_key = True , autoincrement = True )
+	id_author: Mapped [ int ] = mapped_column ( ForeignKey ( 'author_table.id_author', ondelete = 'CASCADE' ) , nullable = False )
+	id_user: Mapped [ int ] = mapped_column ( ForeignKey ( 'user_table.id_user', ondelete = 'CASCADE' ) , nullable = False )
+	datetime_favorite: Mapped [ datetime ] = mapped_column ( server_default = func.now ( ) )

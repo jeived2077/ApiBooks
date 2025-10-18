@@ -5,20 +5,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import AsyncGenerator
 
-from Database.connect.database_connect import AsyncSessionLocal
+from Database.connect.database_connect import AsyncSessionLocal , get_db
 from Database.settings.settings import Settings
 from Route.auth.methods_route import MethodsRegister
 from Route.auth.response_model import CheckRegistationRequestModel , CheckDataResponseModel , RequestAuthModel
 
 router = APIRouter ( )
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    async with AsyncSessionLocal() as db:
-        try:
-            
-            yield db
-        finally:
-           
-            await db.close()
+
 
 
 

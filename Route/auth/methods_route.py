@@ -50,7 +50,6 @@ class MethodsRegister ( BaseModel ) :
 			add_user = UserTable (
 				login_user = login ,
 				password_hashed = hashed_password.decode ( 'utf-8' ) ,
-				salt = salt.decode ( 'utf-8' ) ,
 				email = email ,
 				role = "user"
 				)
