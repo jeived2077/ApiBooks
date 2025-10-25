@@ -193,9 +193,9 @@ class MethodsRegister ( BaseModel ) :
 			return token_refresh , token_access
 		except Exception as e :
 			raise HTTPException ( status_code = 401 , detail = f"Ошибка в генерации ключей Подробнее {e}" )
-	
+	@classmethod
 	# Проверка токена
-	async def VerifyJwt ( self , token ) :
+	async def VerifyJwt ( cls , token ) :
 		if not token :
 			print ( "Отсутствует токен" )
 		

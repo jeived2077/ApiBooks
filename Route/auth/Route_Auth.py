@@ -2,17 +2,11 @@ from fastapi import APIRouter , Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import AsyncGenerator
-
-from Database.connect.database_connect import AsyncSessionLocal , get_db
-from Database.settings.settings import Settings
+from Database.connect.database_connect import get_db
 from Route.auth.methods_route import MethodsRegister
 from Route.auth.response_model import CheckRegistationRequestModel , CheckDataResponseModel , RequestAuthModel
 
 router = APIRouter ( )
-
-
 
 
 @router.post ( "/refresh_token" , summary = "Обновление токена" )
@@ -31,8 +25,8 @@ async def check_token ( ) :
 
 
 @router.post ( "/login" , summary = "Авторизация пользователя" )
-async def login_auth ( data: RequestAuthModel, db: Session = Depends ( get_db )  ) :
-	return await MethodsRegister.Auth (db, data.login, data.password )
+async def login_auth ( data: RequestAuthModel , db: Session = Depends ( get_db ) ) :
+	return await MethodsRegister.Auth ( db , data.login , data.password )
 
 
 @router.post (

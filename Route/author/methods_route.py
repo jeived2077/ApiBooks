@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import HTTPException
 from pydantic import BaseModel
 from select import select
