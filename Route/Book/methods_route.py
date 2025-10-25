@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from Database.model import BooksTable , GenreTable , AuthorTable , Book_Author , FavoriteUserBook , UserTable
+from Database.model.StatusReadBook import ReadBookTable
+from Database.model.StatusTable import StatusTable
 from Database.settings.settings import settings
 from Route.Book.response_model import BookModel
 from Route.auth.methods_route import MethodsRegister
@@ -65,7 +67,8 @@ class MethodsBook ( BaseModel ) :
 					
 					author = f"{author_name} {author_family}" ,
 					photo = encoded_photo ,
-					is_favorite = check_liked_bool
+					is_favorite = check_liked_bool ,
+					type = "popular"
 					)
 				popular_books_model.append ( book_model )
 			
@@ -79,9 +82,10 @@ class MethodsBook ( BaseModel ) :
 				Book_Author , BooksTable.book_id == Book_Author.id_book
 				).join (
 				AuthorTable , Book_Author.id_author == AuthorTable.id_author
-				).order_by ( desc ( BooksTable.book_id )
-			                 
-			                 )
+				).order_by (
+				desc ( BooksTable.book_id )
+				
+				)
 			
 			new_results = await db.execute ( new_query )
 			new_rows = new_results.unique ( ).all ( )
@@ -105,7 +109,8 @@ class MethodsBook ( BaseModel ) :
 					title = book_name ,
 					author = f"{author_name} {author_family}" ,
 					photo = encoded_photo ,
-					is_favorite = check_liked_bool
+					is_favorite = check_liked_bool ,
+					type = "new_book"
 					)
 				new_books_model.append ( book_model )
 			
@@ -124,15 +129,13 @@ class MethodsBook ( BaseModel ) :
 	async def add_favorite_book ( cls , db: AsyncSession , token: str , id_book: int ) :
 		try :
 			login = await MethodsRegister.VerifyJwt ( token )
-			select_id_user = (select ( UserTable.id_user).where ( UserTable.login_user == login ))
-			id_user = (await db.execute(select_id_user)).scalar_one_or_none()
+			select_id_user = (select ( UserTable.id_user ).where ( UserTable.login_user == login ))
+			id_user = (await db.execute ( select_id_user )).scalar_one_or_none ( )
 			if id_user is None :
-				
 				raise HTTPException ( status_code = 401 , detail = "Не найден пользователь" )
 			insert_book = FavoriteUserBook (
-				Id_user = id_user,
-				Id_book = id_book,
-				
+				Id_user = id_user ,
+				Id_book = id_book ,
 				
 				)
 			db.add ( insert_book )
@@ -143,7 +146,8 @@ class MethodsBook ( BaseModel ) :
 		except Exception as e :
 			print ( e )
 			raise HTTPException (
-				status_code = 500 , detail = f"Произошла внутренняя ошибка при добавлении в избранное книгу.  Подробнее {e}"
+				status_code = 500 ,
+				detail = f"Произошла внутренняя ошибка при добавлении в избранное книгу.  Подробнее {e}"
 				)
 	
 	# Удаление книг из избранных
@@ -169,6 +173,7 @@ class MethodsBook ( BaseModel ) :
 				status_code = 500 , detail = f"Произошла внутренняя ошибка при регистрации.  Подробнее {e}"
 				)
 	
+	# Подробное описание книг
 	@classmethod
 	async def detail_book ( cls , db: AsyncSession , token: str , id_book: int ) :
 		try :
@@ -177,14 +182,22 @@ class MethodsBook ( BaseModel ) :
 			select_id_user_result = select_id_user.scalars ( ).first ( )
 			writeline_book = await db.execute (
 				select (
-					
+					StatusTable.status_name ,
 					GenreTable.genre_name , AuthorTable.name , AuthorTable.family
 					).where ( BooksTable.book_id == id_book ).join (
-					BooksTable.book_id == Book_Author.id_book ,
-					Book_Author.id_book == AuthorTable.id_author == AuthorTable.id_author
+					BooksTable.book_id == Book_Author.id_book
+					).join (
+					Book_Author.id_book == AuthorTable.id_author
+					).join (
+					AuthorTable.id_author == AuthorTable.id_author
+					).join (
+					ReadBookTable.id_book == Book_Author.id_book
+					
 					)
+				.join ( ReadBookTable.id_Status == StatusTable.id_status )
 				
 				)
+			
 			result_book = await db.execute ( writeline_book )
 			return result_book.scalar ( ).all
 		except HTTPException as e :
@@ -197,4 +210,5 @@ class MethodsBook ( BaseModel ) :
 	
 	@classmethod
 	async def read_book ( cls , session: Session , jwt: str ) :
+		
 		pass

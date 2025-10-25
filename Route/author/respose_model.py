@@ -11,3 +11,12 @@ class AuthorModel (BaseModel) :
 	
 	
 	
+class AcessRequest (BaseModel) :
+	access_token: str
+	refresh_token: str
+	
+	
+	
+
+	
+	

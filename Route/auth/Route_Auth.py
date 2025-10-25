@@ -10,8 +10,8 @@ router = APIRouter ( )
 
 
 @router.post ( "/refresh_token" , summary = "Обновление токена" )
-async def refresh_token ( ) :
-	pass
+async def refresh_token ( access_token : str, refresh_token : str) :
+	return await MethodsRegister.RefreshToken(access_token , refresh_token )
 
 
 @router.post ( "/generate_token" , summary = "Генерация токена токена" )

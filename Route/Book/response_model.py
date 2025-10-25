@@ -8,3 +8,4 @@ class BookModel ( BaseModel ) :
 	author: str
 	photo: str
 	is_favorite: bool
+	type: str

@@ -232,7 +232,7 @@ class MethodsRegister ( BaseModel ) :
 			# Ошибка декодирования
 			raise HTTPException ( status_code = 401 , detail = f"Не удалось декодировать токен" )
 			print ( "Не удалось декодировать токен" )
-	
+	@classmethod
 	# Обновление токена
 	async def RefreshToken ( self , expired_access_token: str , refresh_token: str ) :
 		
