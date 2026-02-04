@@ -8,6 +8,7 @@ from Route.Book.Route_Book import router as book_router
 from Route.Statics.Route_Statics import router as statics_router
 
 app = FastAPI ( )
+#Изменение параметров Middleware
 app.add_middleware(
   CORSMiddleware,
   allow_origins=["*"],
