@@ -46,12 +46,13 @@ services:
 
 
   app:
+    
     build:
       context: .
       dockerfile: docker/python/Dockerfile
     container_name: app
-
-    ports:
+    
+    ports:  
       - "8080:80"
     volumes:
       - ./src:/code/src
@@ -59,6 +60,19 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - app-network
+
+  celery:
+    build:
+      context: .
+      dockerfile: docker/python/Dockerfile
+    container_name: celery_worker
+    command: ["celery", "-A", "app.core.celery_app:app", "worker", "-l", "info"]
+    volumes:
+      - ./src:/code/src
+    depends_on:
+      - redis
     networks:
       - app-network
 
