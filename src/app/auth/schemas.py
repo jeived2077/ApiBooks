@@ -32,10 +32,26 @@ class RequestAuthModel ( BaseModel ) :
 class CheckDataResponseModel ( BaseModel ) :
     success: bool | None = Field ( default = None )
     message: str | None = Field ( default = None )
-    result: str | None = Field ( default = None )
-    
+  
+class RequestEmailModel(BaseModel):
+    email: EmailStr | None = Field ( default = None )
+    @field_validator ( 'email' )
+    @classmethod
+    def validate_email ( cls , value ) :
+        if value is None or not str(value).strip() :
+            logger.error("Электронная почта не указана")
+            raise HTTPException (
+                status_code = 402 ,
+                detail = "Электронная почта не указана"
+                )
+        
+        return str(value).strip().lower()
+      
+
     
 class CheckResetPasswordRequestModel(BaseModel):
+    email: EmailStr | None = Field ( default = None )
+    code: int = Field(..., ge=1000, le=9999)
     password: str | None = Field ( default = None )
     password2: str | None = Field ( default = None )
     @field_validator ( 'password' )
@@ -56,12 +72,28 @@ class CheckResetPasswordRequestModel(BaseModel):
      if 'password' in info.data and value != info.data [ 'password' ] :
          raise ValueError ( 'Введенные пароли не совпадают' )
      return value
+    @field_validator('code')
+    @classmethod
+    def validate_code(cls, value):
+        if value is None:
+            logger.error("Код подтверждения не указан")
+            raise HTTPException(
+                status_code=402,
+                detail="Код подтверждения не указан",
+            )
+        if not (1000 <= value <= 9999):
+            logger.error("Неверный код подтверждения")
+            raise HTTPException(
+                status_code=402,
+                detail="Неверный код подтверждения",
+            )
+        return value
 
 class CheckRegistationRequestModel ( BaseModel ) :
     login: str | None = Field ( default = None )
     password: str | None = Field ( default = None )
     password2: str | None = Field ( default = None )
-    email: List[EmailStr] | None = Field ( default = None )
+    email: EmailStr | None = Field ( default = None )
     
     # проверка логина
     @field_validator ( 'login' )
@@ -73,20 +105,22 @@ class CheckRegistationRequestModel ( BaseModel ) :
             
         return value
     
+    
+    
+    
+    #Поменять проверку email так как думал что по документации принимает email только в формате List библиотека fastapi_mail
     # проверка email
     @field_validator ( 'email' )
     @classmethod
     def validate_email ( cls , value ) :
-        
-        if not value or len(value) == 0 :
+        if value is None or not str(value).strip() :
             logger.error("Электронная почта не указана")
             raise HTTPException (
                 status_code = 402 ,
                 detail = "Электронная почта не указана"
                 )
-        
-        
-        return value
+        # нормализуем email к нижнему регистру
+        return str(value).strip().lower()
     
     @field_validator ( 'password' )
     @classmethod
@@ -128,9 +162,19 @@ class CheckRegistationRequestModel ( BaseModel ) :
             raise HTTPException ( status_code = 402 , detail = f"Введенные пароли не совпадают" )
             
         return value
-class RegisterRequestModel(BaseModel):
-    email: EmailStr
-    code: int = Field(..., ge=100000, le=999999)
+    
+    
+    
+    
+class ResetPasswordModel(BaseModel):
+    password: str
+    password2: str
+    email: str
+    
+
+class EmailCodeRequestModel(BaseModel):
+    email: str
+    code: int = Field(..., ge=1000, le=9999)
 
     @field_validator('email')
     @classmethod
@@ -152,7 +196,7 @@ class RegisterRequestModel(BaseModel):
                 status_code=402,
                 detail="Код подтверждения не указан",
             )
-        if not (100000 <= value <= 999999):
+        if not (1000 <= value <= 9999):
             logger.error("Неверный код подтверждения")
             raise HTTPException(
                 status_code=402,
