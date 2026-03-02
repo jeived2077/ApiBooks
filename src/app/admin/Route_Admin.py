@@ -11,6 +11,13 @@ router = APIRouter ( )
 async def AddAuthor (data: RequestAddAuthor, db: Session = fastapi.Depends ( get_db )) :
     pass
 
+# from fastapi import APIRouter
+
+# router = APIRouter ( )
+
+
+# async def AddAuthor ( ) :
+# 	pass
 
 
 # async def DeleteAuthor ( ) :
