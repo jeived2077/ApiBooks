@@ -1,6 +1,6 @@
 import datetime
 from typing import List
-from celery_methods import add_time_user
+from app.workers.tasks import add_time_user,reset_password
 from log.log import logger
 from random import random
 import redis.asyncio as redis
@@ -9,13 +9,14 @@ from fastapi import HTTPException
 from fastapi_mail import MessageSchema
 from jose import jwt , JWTError
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import select
+from sqlalchemy import Update, select
 from sqlalchemy.orm import Session
 from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType, NameEmail
 from Database.model import UserTable
 from app.core.celery_app import celery_app
 from config.settings import settings
-from src.app.auth.schemas import CheckDataResponseModel
+
+from app.auth.schemas import CheckDataResponseModel
 
 SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = "HS256"
@@ -23,39 +24,42 @@ ALGORITHM = "HS256"
 
 class MethodsRegister ( BaseModel ) :
     
-    @classmethod
-    async def ChangePassword(cls, db: Session, password: str, email: str):
-            pass  
+    
     # метод проверки данных пользователя
     @classmethod
-    async def CheckDataRegister (cls, db: Session, login: str, email: List[EmailStr], password: str) :
-        logger.info(f"Входящие данные {login},{email}")
-        email_str = str(email[0]) if isinstance(email, list) and len(email) > 0 else str(email)
-        check_login = await db.execute (
-            select ( UserTable.id_user ).where ( UserTable.login_user == login )
-            )
-        check_email = (
-            await db.execute ( select ( UserTable.id_user ).where ( UserTable.email == email_str ) )
-        
-        )
-  
-        check_login_result = check_login.scalars ( ).first ( )
-        check_email_result = check_email.scalars ( ).first ( )
-        
-        if check_login_result :
-            raise HTTPException ( status_code = 409 , detail = f"Данный  логин используется" )
-        if check_email_result :
-            raise HTTPException ( status_code = 409 , detail = f"Данная электронная почта используется" )
-    
-        logger.info("Проверка данных успешно проведена")
+    async def CheckDataRegister (cls, db: Session, login: str, email: str, password: str) :
         try:
+            logger.info(f"Входящие данные {login},{email}")
+            
+            check_login = await db.execute (
+                select ( UserTable.id_user ).where ( UserTable.login_user == login )
+                )
+            check_email = (
+                await db.execute ( select ( UserTable.id_user ).where ( UserTable.email == email ) )
+
+            )
+  
+            check_login_result = check_login.scalars ( ).first ( )
+            check_email_result = check_email.scalars ( ).first ( )
+        
+            if check_login_result :
+                raise HTTPException ( status_code = 409 , detail = f"Данный  логин используется" )
+            if check_email_result :
+                raise HTTPException ( status_code = 409 , detail = f"Данная электронная почта используется" )
+    
+            logger.info("Проверка данных успешно проведена")
+
             add_time_user.apply_async(
-                kwargs={"login": login, "email": email_str, "password": password},
+                kwargs={"login": login, "email": email, "password": password},
                 retry=False,
             )
-        except Exception as e:
             
-            logger.exception(f"Не удалось отправить задачу add_time_user в Celery: {e}")
+        except HTTPException as e :
+            raise HTTPException ( status_code = 500 , detail = f"Ошибка в {e}" )
+        except Exception as e :
+            raise HTTPException (
+                status_code = 500 , detail = f"Произошла внутренняя ошибка при регистрации.  Подробнее {e}"
+                )
         
         
         
@@ -70,14 +74,76 @@ class MethodsRegister ( BaseModel ) :
         
     )
     @classmethod
-    async def ResetPassword(cls, db: Session, email: str):
+    async def ResetPassword(cls, db: Session, code: int, email: str, password: str):
+        try:
+            logger.info(f'Входящие данные email: {email}, code: {code}, password: {password}')
+            key = f"temp_user:{email.lower()}"
+            redis_conn = settings.redis_conn
+            user_data = redis_conn.hgetall(name=key)
+            logger.info(user_data)
+            logger.info(f"Код с бд {user_data.get("code")}")
+            if user_data.get("code") != str(code):
+                raise HTTPException (
+                status_code = 419 , detail = f"Неправильный код"
+                )
+            
+            
+            logger.info(f'Проверка кода прошла успешна начата изменение пароля в бд')
+            salt = bcrypt.gensalt()
+            hashed_password = bcrypt.hashpw(password.encode("utf-8"), salt)
+            change_password = db.execute(Update(UserTable).where(UserTable.email == email).values(password_hashed = hashed_password))
+            #Нужно добавить проверку выполнения запроса сюда
+            # change_password_result = change_password.scalars ( ).first ( )
+            redis_conn.delete(key)
+            return CheckDataResponseModel(
+        success=True,
+        message="Пароль был изменён",
+        )
+                
+        except HTTPException as e :
+            raise HTTPException ( status_code = 500 , detail = f"Ошибка в {e}" )
+        except Exception as e :
+        
+            raise HTTPException (
+                status_code = 500 , detail = f"Произошла внутренняя ошибка при сбросе пароля  Подробнее {e}"
+                )
+        finally:
+            redis_conn.close()
+            
+        
+    @classmethod
+    async def SendEmailReset(cls, db: Session, email: str):
+        try:
+            logger.info(f'Входящие данные email: {email}')
+            check_email = await db.execute (
+                select (UserTable.email).where (UserTable.email == email)
+            )
+            check_email_result = check_email.scalars().first()
+            
+            if check_email_result is None:
+                raise HTTPException ( status_code = 404 , detail = f"Данного пользователя с привязанной данной электронной почтой отсутствует" )
+            logger.info(f'Проверка на привязку почты прошла успешна')
+            logger.info(f'Начата отправка кода на почту')
+            reset_password.apply_async(
+                kwargs={"email": email},
+                retry=False,
+            )
+            return CheckDataResponseModel(success = True, message = "Отправлен код на почту")
+        except HTTPException as e :
+            raise HTTPException ( status_code = 500 , detail = f"Ошибка в {e}" )
+        except Exception as e :
+            raise HTTPException (
+                status_code = 500 , detail = f"Произошла внутренняя ошибка при регистрации.  Подробнее {e}"
+                )
+        
+    
+        
+            
+         
+            
      
-         check_email = await db.execute (
-             select (UserTable.email).where (UserTable.email == email)
-         )
-         check_email_result = check_email.scalars().first()
-         if check_email_result:
-             raise HTTPException ( status_code = 404 , detail = f"Данного пользователя нету" )
+         
+         
          
    
 
@@ -96,39 +162,49 @@ class MethodsRegister ( BaseModel ) :
     
     @classmethod
     async def Register ( cls , db: Session , email: str, code: int ) :
-    	try :
+        try :
             key = f"temp_user:{email.lower()}"
             redis_conn = settings.redis_conn
             user_data = redis_conn.hgetall(name=key)
             logger.info(user_data)
             if user_data is None:
                 raise HTTPException (
-    			status_code = 402 , detail = f"Отсутствуют данные"
-    			)
-            add_user = UserTable (
-    			login_user = user_data.login ,
-    			password_hashed = user_data.password ,
-    			email = email ,
-    			role = "user"
-    			)
+                status_code = 402 , detail = f"Отсутствуют данные"
+                )
+            if user_data.get("code") != code:
+                raise HTTPException (
+                status_code = 419 , detail = f"Неправильный код"
+                )
+            add_user = UserTable(
+            login_user=user_data.get("login"),
+            password_hashed=user_data.get("password"),
+            email=user_data.get("email"),
+            role="user",
+                        )
             db.add ( add_user )
             await db.commit ( )
             await db.refresh ( add_user )
-            
-    		if add_user.id_user :
+            redis_conn.delete(key)
+            if add_user.id_user :
                 return await cls.GenerateJwt (
-    				add_user.id_user , add_user.email , add_user.login_user ,
-    				add_user.role
-    				)
+                    add_user.id_user , add_user.email , add_user.login_user ,
+                    add_user.role
+                    )
             else :
-    			return False
-    	except HTTPException as e :
-    		raise HTTPException ( status_code = 500 , detail = f"Ошибка в {e}" )
-    	except Exception as e :
-    		print ( e )
-    		raise HTTPException (
-    			status_code = 500 , detail = f"Произошла внутренняя ошибка при регистрации.  Подробнее {e}"
-    			)
+                return False
+        except HTTPException as e :
+            raise HTTPException ( status_code = 500 , detail = f"Ошибка в {e}" )
+        except Exception as e :
+            print ( e )
+            raise HTTPException (
+                status_code = 500 , detail = f"Произошла внутренняя ошибка при регистрации.  Подробнее {e}"
+                )
+        finally:
+            redis_conn.close()
+    
+    
+    
+    
     
     @classmethod
     # метод авторизации пользователя
@@ -168,43 +244,6 @@ class MethodsRegister ( BaseModel ) :
                 raise HTTPException ( status_code = 401 , detail = f"Пользователя такого не существует" )
         except Exception as e :
             raise HTTPException ( status_code = 401 , detail = f"Ошибка в авторизации пользователя Подробнее {e}" )
-    
-    # @classmethod
-    # # метод отправки кода на почту
-    # async def SendEmail ( cls , email: str ) :
-    # 	try :
-    # 		int
-    # 		code = random.randint ( 1000 , 9999 )
-    # 		template = f"""
-    # 				        <html>
-    # 				        <body>
-
-
-    # 				<p>Hi !!!
-    # 				        <br>Привет, вот код для потверждения почты <var>{code}</var>!!!</p>
-
-
-    # 				        </body>
-    # 				        </html>
-    # 				        """
-            
-    # 		message = MessageSchema (
-    # 			subject = "Отправка кода для потверждение почты" ,
-    # 			recipients = email.dict ( ).get ( "email" ) ,
-    # 			body = template ,
-    # 			subtype = "html"
-    # 			)
-            
-    # 		# fm = FastMail ( conf )
-    # 		# await fm.send_message ( message )
-    # 		print ( message )
-            
-    # 		return HTTPException ( status_code = 200 , detail = { "Код был отправлен на почту" } )
-    # 	except Exception as e :
-    # 		return HTTPException ( status_code = 4000 , detail = { "Код не был отправлен на почту" } )
-    
-    # метод проверки кода пользователя с кодом получателя
-    
     
     # метод генерации токена
     async def GenerateJwt ( self , user_id , email , login , role = "user" ) :
@@ -251,6 +290,11 @@ class MethodsRegister ( BaseModel ) :
             }
         except Exception as e :
             raise HTTPException ( status_code = 401 , detail = f"Ошибка в генерации ключей Подробнее {e}" )
+        
+    
+                
+                
+        
     @classmethod
     # Проверка токена
     async def VerifyJwt ( cls , token ) :
