@@ -1,10 +1,16 @@
-# from fastapi import APIRouter
+from fastapi import APIRouter
+import fastapi
+from requests import Session
 
-# router = APIRouter ( )
+from Database.connect.database_connect import get_db
+from app.admin.response_model import RequestAddAuthor
 
+router = APIRouter ( )
 
-# async def AddAuthor ( ) :
-# 	pass
+@router.post("/add_author", summary="Добавление автора")
+async def AddAuthor (data: RequestAddAuthor, db: Session = fastapi.Depends ( get_db )) :
+    pass
+
 
 
 # async def DeleteAuthor ( ) :
