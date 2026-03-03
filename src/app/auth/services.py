@@ -27,7 +27,7 @@ class MethodsRegister ( BaseModel ) :
     
     # метод проверки данных пользователя
     @classmethod
-    async def CheckDataRegister (cls, db: Session, login: str, email: str, password: str) :
+    async def CheckDataRegister (cls, db: Session, login: str, email: str, password: str, fist_name: str, last_name:str) :
         try:
             logger.info(f"Входящие данные {login},{email}")
             
@@ -50,7 +50,7 @@ class MethodsRegister ( BaseModel ) :
             logger.info("Проверка данных успешно проведена")
 
             add_time_user.apply_async(
-                kwargs={"login": login, "email": email, "password": password},
+                kwargs={"login": login, "email": email, "password": password, "fist_name": fist_name, "last_name": last_name},
                 retry=False,
             )
             
@@ -179,6 +179,8 @@ class MethodsRegister ( BaseModel ) :
             login_user=user_data.get("login"),
             password_hashed=user_data.get("password"),
             email=user_data.get("email"),
+            first_name=user_data.get("first_name"),
+            last_name=user_data.get("last_name"),
             role="user",
                         )
             db.add ( add_user )

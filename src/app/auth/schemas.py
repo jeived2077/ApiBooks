@@ -90,6 +90,8 @@ class CheckResetPasswordRequestModel(BaseModel):
         return value
 
 class CheckRegistationRequestModel ( BaseModel ) :
+    first_name: str = Field(..., min_length=3, max_length=50, description="Имя, от 3 до 50 символов")
+    last_name: str = Field(..., min_length=3, max_length=50, description="Фамилия, от 3 до 50 символов")
     login: str | None = Field ( default = None )
     password: str | None = Field ( default = None )
     password2: str | None = Field ( default = None )
