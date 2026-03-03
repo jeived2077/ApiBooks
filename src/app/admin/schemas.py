@@ -80,6 +80,3 @@ class AddText(BaseModel):
 	id_book: int
 	page: int    
     
-    
-    
-    

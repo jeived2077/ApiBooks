@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from Database.connect.database_connect import engine
 # from app.admin.router import router as admin_router
+from Database.model import UserTable
 from app.auth.router import router as auth_router
 # from app.author.router import router as author_router
 # from app.book.router import router as book_router

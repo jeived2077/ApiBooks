@@ -1,6 +1,6 @@
 from typing import AsyncGenerator
 
-from sqlalchemy.ext.asyncio import AsyncAttrs , async_sessionmaker , create_async_engine , AsyncSession
+from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncEngine , async_sessionmaker , create_async_engine , AsyncSession
 from sqlalchemy.orm import DeclarativeBase
 
 from config.settings import settings
@@ -15,7 +15,9 @@ AsyncSessionLocal = async_sessionmaker (
 	autoflush = False
 	
 	)
-
+@property  
+def db_engine(self) -> AsyncEngine:  
+    return self._engine
 
 async def get_db ( ) -> AsyncGenerator [ AsyncSession , None ] :
 	async with AsyncSessionLocal ( ) as db :

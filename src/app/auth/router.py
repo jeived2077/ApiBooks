@@ -2,7 +2,7 @@ import fastapi
 from log.log import logger
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-
+from auth.services import auth
 from app.auth.schemas import CheckDataResponseModel, CheckRegistationRequestModel, CheckResetPasswordRequestModel, EmailCodeRequestModel, RequestAuthModel, RequestEmailModel
 
 from Database.connect.database_connect import get_db

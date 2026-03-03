@@ -10,15 +10,15 @@ from Database.connect.database_connect import Base
 
 # Таблица пользователей
 class UserTable ( Base ) :
-	__tablename__ = "user_table"
-	id_user: Mapped [ int ] = mapped_column ( Integer , primary_key = True , autoincrement = True )
+    __tablename__ = "user_table"
+    id_user: Mapped [ int ] = mapped_column ( Integer , primary_key = True , autoincrement = True )
     first_name: Mapped[str] = mapped_column ( nullable = False )
     last_name: Mapped[str] = mapped_column ( nullable = False )
-	login_user: Mapped [ str ] = mapped_column ( unique = True, nullable = True )
-	password_hashed: Mapped [ str ] = mapped_column ( unique = True, nullable = True )
-	created_at: Mapped [ datetime.datetime ] = mapped_column (
-		DateTime ( ) , server_default = func.now ( )
-		)
-	email: Mapped [ str ] = mapped_column ( unique = True, nullable = True )
-	role: Mapped [ str ] = mapped_column (  server_default = "user", nullable = True )
+    login_user: Mapped [ str ] = mapped_column ( unique = True, nullable = True )
+    password_hashed: Mapped [ str ] = mapped_column ( unique = True, nullable = True )
+    created_at: Mapped [ datetime.datetime ] = mapped_column (
+        DateTime ( ) , server_default = func.now ( )
+        )
+    email: Mapped [ str ] = mapped_column ( unique = True, nullable = True )
+    role: Mapped [ str ] = mapped_column (  server_default = "user", nullable = True )
     

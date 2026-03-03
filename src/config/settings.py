@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     DB_NAME: str
 
     SECRET_KEY: str
-
+    ACCESS_TOKEN_EXPIRE: int
     # Redis
     REDIS_HOST: str = '0.0.0.0'
     REDIS_PORT: int = 6379

@@ -1,5 +1,8 @@
 import datetime
 from typing import List
+
+from authx import AuthX, AuthXConfig
+from app.main import app
 from app.workers.tasks import add_time_user,reset_password
 from log.log import logger
 from random import random
@@ -18,10 +21,15 @@ from config.settings import settings
 
 from app.auth.schemas import CheckDataResponseModel
 
-SECRET_KEY = settings.SECRET_KEY
-ALGORITHM = "HS256"
 
-
+#Конфигурация токена
+config = AuthXConfig(
+    JWT_SECRET_KEY=settings.SECRET_KEY, 
+    JWT_TOKEN_LOCATION=["headers"],
+    JWT_ACCESS_TOKEN_EXPIRES= datetime.timedelta(seconds=settings.ACCESS_TOKEN_EXPIRE)
+)
+auth = AuthX(config=config)
+auth.handle_errors(app)
 class MethodsRegister ( BaseModel ) :
     
     
@@ -188,10 +196,11 @@ class MethodsRegister ( BaseModel ) :
             await db.refresh ( add_user )
             redis_conn.delete(key)
             if add_user.id_user :
-                return await cls.GenerateJwt (
-                    add_user.id_user , add_user.email , add_user.login_user ,
-                    add_user.role
-                    )
+                return auth.create_access_token(uid=add_user.login_user, scopes=["users:read", "posts:write"])
+                # return await cls.GenerateJwt (
+                #     add_user.id_user , add_user.email , add_user.login_user ,
+                #     add_user.role
+                #     )
             else :
                 return False
         except HTTPException as e :
@@ -229,7 +238,8 @@ class MethodsRegister ( BaseModel ) :
                     check.password_hashed.encode ( 'utf-8' )
                     )
                 if check_password :
-                    return await cls.GenerateJwt ( check.id_user , check.login_user , check.email , check.role )
+                    return auth.create_access_token(uid=login, scopes=["users:read", "posts:write"])
+                    # return await cls.GenerateJwt ( check.id_user , check.login_user , check.email , check.role )
                 else :
                     raise HTTPException ( status_code = 401 , detail = f"Неверный пароль" )
             
@@ -246,141 +256,141 @@ class MethodsRegister ( BaseModel ) :
                 raise HTTPException ( status_code = 401 , detail = f"Пользователя такого не существует" )
         except Exception as e :
             raise HTTPException ( status_code = 401 , detail = f"Ошибка в авторизации пользователя Подробнее {e}" )
-    
-    # метод генерации токена
-    async def GenerateJwt ( self , user_id , email , login , role = "user" ) :
-        print ( user_id , email , login , role )
-        try :
-            # Получение данных пользователя
-            payload_refresh = {
-                "user_id" : user_id ,
-                "email" : email ,
-                "login" : login ,
-                "role" : role ,
-                "token_type" : "refresh" ,
-                "exp" : datetime.datetime.utcnow ( ) + datetime.timedelta ( days = 365 ) ,
-                "iat" : datetime.datetime.utcnow ( ) ,
-                }
+    #Эти функции будут удалены и заменены будут библиотекой
+    # # метод генерации токена
+    # async def GenerateJwt ( self , user_id , email , login , role = "user" ) :
+    #     print ( user_id , email , login , role )
+    #     try :
+    #         # Получение данных пользователя
+    #         payload_refresh = {
+    #             "user_id" : user_id ,
+    #             "email" : email ,
+    #             "login" : login ,
+    #             "role" : role ,
+    #             "token_type" : "refresh" ,
+    #             "exp" : datetime.datetime.utcnow ( ) + datetime.timedelta ( days = 365 ) ,
+    #             "iat" : datetime.datetime.utcnow ( ) ,
+    #             }
             
-            headers_refresh = {
-                "kid" : "key-id-001" ,
-                "typ" : "Refresh"
-                }
-            payload_access = {
-                "user_id" : user_id ,
-                "email" : email ,
-                "login" : login ,
-                "role" : role ,
-                "token_type" : "access" ,
-                "exp" : datetime.datetime.utcnow ( ) + datetime.timedelta ( minutes = 5 ) ,
-                "iat" : datetime.datetime.utcnow ( ) ,
-                }
+    #         headers_refresh = {
+    #             "kid" : "key-id-001" ,
+    #             "typ" : "Refresh"
+    #             }
+    #         payload_access = {
+    #             "user_id" : user_id ,
+    #             "email" : email ,
+    #             "login" : login ,
+    #             "role" : role ,
+    #             "token_type" : "access" ,
+    #             "exp" : datetime.datetime.utcnow ( ) + datetime.timedelta ( minutes = 5 ) ,
+    #             "iat" : datetime.datetime.utcnow ( ) ,
+    #             }
             
-            headers_access = {
-                "kid" : "key-id-001" ,
-                "typ" : "Refresh"
-                }
+    #         headers_access = {
+    #             "kid" : "key-id-001" ,
+    #             "typ" : "Refresh"
+    #             }
             
-            token_refresh = jwt.encode (
-                payload_refresh , SECRET_KEY , algorithm = "HS256" , headers = headers_refresh
-                )
-            token_access = jwt.encode ( payload_access , SECRET_KEY , algorithm = "HS256" , headers = headers_access )
-            # Переделал возвращение в таком формате
-            return {
-                "token_refresh": token_refresh,
-                "token_access": token_access
-            }
-        except Exception as e :
-            raise HTTPException ( status_code = 401 , detail = f"Ошибка в генерации ключей Подробнее {e}" )
+    #         token_refresh = jwt.encode (
+    #             payload_refresh , SECRET_KEY , algorithm = "HS256" , headers = headers_refresh
+    #             )
+    #         token_access = jwt.encode ( payload_access , SECRET_KEY , algorithm = "HS256" , headers = headers_access )
+    #         # Переделал возвращение в таком формате
+    #         return {
+    #             "token_refresh": token_refresh,
+    #             "token_access": token_access
+    #         }
+    #     except Exception as e :
+    #         raise HTTPException ( status_code = 401 , detail = f"Ошибка в генерации ключей Подробнее {e}" )
         
     
                 
                 
         
-    @classmethod
-    # Проверка токена
-    async def VerifyJwt ( cls , token ) :
-        if not token :
-            print ( "Отсутствует токен" )
+    # @classmethod
+    # # Проверка токена
+    # async def VerifyJwt ( cls , token ) :
+    #     if not token :
+    #         print ( "Отсутствует токен" )
         
-        try :
-            decoded = jwt.decode ( token , SECRET_KEY , algorithms = [ "HS256" ] )
-            print ( f"Пользователь: {decoded [ 'user_id' ]}" )
-        except jwt.ExpiredSignatureError :
+    #     try :
+    #         decoded = jwt.decode ( token , SECRET_KEY , algorithms = [ "HS256" ] )
+    #         print ( f"Пользователь: {decoded [ 'user_id' ]}" )
+    #     except jwt.ExpiredSignatureError :
             
-            # Токен истёк
+    #         # Токен истёк
             
-            raise HTTPException ( status_code = 401 , detail = f"Срок действия токена истёк" )
-            print ( "Срок действия токена истёк" )
-        except jwt.InvalidSignatureError :
-            # Неверная подпись
-            raise HTTPException ( status_code = 401 , detail = f"Подпись токена недействительна" )
-            print ( "Подпись токена недействительна" )
-        except jwt.InvalidAudienceError :
-            # Неверная аудитория
-            raise HTTPException ( status_code = 401 , detail = f"Токен предназначен для другой аудитории" )
-            print ( "Токен предназначен для другой аудитории" )
-        except jwt.InvalidIssuerError :
-            # Неверный издатель
-            raise HTTPException ( status_code = 401 , detail = f"Токен выдан неизвестным издателем" )
-            print ( "Токен выдан неизвестным издателем" )
-        except jwt.InvalidKeyError :
-            # Неверный ключ
-            raise HTTPException ( status_code = 401 , detail = f"Ключ недействителен" )
-            print ( "Ключ недействителен" )
-        except jwt.InvalidTokenError :
-            # Базовое исключение для всех ошибок
-            raise HTTPException ( status_code = 401 , detail = f"Токен недействителен" )
-            print ( "Токен недействителен" )
-        except jwt.DecodeError :
-            # Ошибка декодирования
-            raise HTTPException ( status_code = 401 , detail = f"Не удалось декодировать токен" )
-            print ( "Не удалось декодировать токен" )
-    @classmethod
-    # Обновление токена
-    async def RefreshToken ( self , expired_access_token: str , refresh_token: str ) :
+    #         raise HTTPException ( status_code = 401 , detail = f"Срок действия токена истёк" )
+    #         print ( "Срок действия токена истёк" )
+    #     except jwt.InvalidSignatureError :
+    #         # Неверная подпись
+    #         raise HTTPException ( status_code = 401 , detail = f"Подпись токена недействительна" )
+    #         print ( "Подпись токена недействительна" )
+    #     except jwt.InvalidAudienceError :
+    #         # Неверная аудитория
+    #         raise HTTPException ( status_code = 401 , detail = f"Токен предназначен для другой аудитории" )
+    #         print ( "Токен предназначен для другой аудитории" )
+    #     except jwt.InvalidIssuerError :
+    #         # Неверный издатель
+    #         raise HTTPException ( status_code = 401 , detail = f"Токен выдан неизвестным издателем" )
+    #         print ( "Токен выдан неизвестным издателем" )
+    #     except jwt.InvalidKeyError :
+    #         # Неверный ключ
+    #         raise HTTPException ( status_code = 401 , detail = f"Ключ недействителен" )
+    #         print ( "Ключ недействителен" )
+    #     except jwt.InvalidTokenError :
+    #         # Базовое исключение для всех ошибок
+    #         raise HTTPException ( status_code = 401 , detail = f"Токен недействителен" )
+    #         print ( "Токен недействителен" )
+    #     except jwt.DecodeError :
+    #         # Ошибка декодирования
+    #         raise HTTPException ( status_code = 401 , detail = f"Не удалось декодировать токен" )
+    #         print ( "Не удалось декодировать токен" )
+    # @classmethod
+    # # Обновление токена
+    # async def RefreshToken ( self , expired_access_token: str , refresh_token: str ) :
         
-        try :
+    #     try :
             
-            payload_access = jwt.decode (
-                expired_access_token ,
-                SECRET_KEY ,
-                algorithms = [ ALGORITHM ] ,
-                options = { "verify_signature" : False , "verify_exp" : False }
-                )
+    #         payload_access = jwt.decode (
+    #             expired_access_token ,
+    #             SECRET_KEY ,
+    #             algorithms = [ ALGORITHM ] ,
+    #             options = { "verify_signature" : False , "verify_exp" : False }
+    #             )
             
-            if payload_access.get ( "token_type" ) != "access" :
-                raise HTTPException ( status_code = 403 , detail = "Предоставленный токен не является Access Token." )
+    #         if payload_access.get ( "token_type" ) != "access" :
+    #             raise HTTPException ( status_code = 403 , detail = "Предоставленный токен не является Access Token." )
         
-        except JWTError :
+    #     except JWTError :
             
-            raise HTTPException (
-                status_code = 401 , detail = "Недействительный Access Token (ошибка подписи/формата)."
-                )
+    #         raise HTTPException (
+    #             status_code = 401 , detail = "Недействительный Access Token (ошибка подписи/формата)."
+    #             )
         
-        try :
-            payload_refresh = await self.VerifyJwt ( refresh_token , required_type = "refresh" )
+    #     try :
+    #         payload_refresh = await self.VerifyJwt ( refresh_token , required_type = "refresh" )
         
-        except HTTPException as e :
+    #     except HTTPException as e :
             
-            if e.status_code == 401 :
-                raise HTTPException (
-                    status_code = 401 , detail = "Сессия окончена. Refresh Token истёк. Требуется повторный вход."
-                    )
-            raise e
+    #         if e.status_code == 401 :
+    #             raise HTTPException (
+    #                 status_code = 401 , detail = "Сессия окончена. Refresh Token истёк. Требуется повторный вход."
+    #                 )
+    #         raise e
         
-        user_data = {
-            "user_id" : payload_access.get ( "sub" ) ,
-            "email" : payload_access.get ( "email" ) ,
-            "login" : payload_access.get ( "login" ) ,
-            "role" : payload_access.get ( "role" ) ,
-            }
+    #     user_data = {
+    #         "user_id" : payload_access.get ( "sub" ) ,
+    #         "email" : payload_access.get ( "email" ) ,
+    #         "login" : payload_access.get ( "login" ) ,
+    #         "role" : payload_access.get ( "role" ) ,
+    #         }
         
-        new_refresh_token , new_access_token = await self.GenerateJwt (
-            user_id = user_data [ "user_id" ] ,
-            email = user_data [ "email" ] ,
-            login = user_data [ "login" ] ,
-            role = user_data [ "role" ]
-            )
+    #     new_refresh_token , new_access_token = await self.GenerateJwt (
+    #         user_id = user_data [ "user_id" ] ,
+    #         email = user_data [ "email" ] ,
+    #         login = user_data [ "login" ] ,
+    #         role = user_data [ "role" ]
+    #         )
         
-        return new_refresh_token , new_access_token
+    #     return new_refresh_token , new_access_token
