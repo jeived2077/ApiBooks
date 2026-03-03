@@ -57,7 +57,7 @@ def reset_password(self, email: str):
 
 
 @celery_app.task(name="add_time_user", bind=True, max_retries=3, default_retry_delay=30)
-def add_time_user(self, login: str, email: str, password: str):
+def add_time_user(self, login: str, email: str, password: str, first_name: str, last_name:str):
     redis_conn = None
     try:
         logger.info("Начато работа: запись во временное хранилище + отправка кода на почту")
@@ -77,6 +77,8 @@ def add_time_user(self, login: str, email: str, password: str):
         """
 
         user_data = {
+            "first_name": first_name,
+            "last_name": last_name,
             "login": login,
             "email": email.lower(),
             "password": hashed_password,

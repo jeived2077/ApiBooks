@@ -12,7 +12,7 @@ class AuthorTable ( Base ) :
 	id_author: Mapped [ int ] = mapped_column ( Integer , primary_key = True , autoincrement = True )
 	name: Mapped[str]= mapped_column ( nullable = False  )
 	family: Mapped [ str ] = mapped_column ( nullable = False  )
-	photo: Mapped [ bytes ] = mapped_column ( nullable = False )
+	photo: Mapped [ bytes ] = mapped_column ( nullable = True )
 	information: Mapped [ str ] = mapped_column ( nullable = False )
 	date_author: Mapped [ date ] = mapped_column ( nullable = False )
 	

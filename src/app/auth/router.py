@@ -34,7 +34,9 @@ async def check_data_register ( data: CheckRegistationRequestModel, db: Session 
         db=db,
         login=data.login,
         email=data.email,
-        password=data.password
+        password=data.password,
+        fist_name=data.first_name,
+        last_name=data.last_name,
     )
     
     
